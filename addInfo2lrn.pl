@@ -37,20 +37,27 @@ This script is distributed in the hope that it will be useful, but WITHOUT ANY W
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
+use Pod::Usage;
 
-my $help;
-my $version="addInfo2lrn.pl\tv0.0.4";
-my ($info, $lrn, $names, $out, $map);
+my $version= join("\t",qw(addInfo2lrn.pl v0.0.4));
+my ($info, $lrn, $names, $out, $map,$man,$help);
+
 GetOptions(
-	'map:s'=>\$map,
-	'info:s'=>\$info,
-	'lrn:s'=>\$lrn,
-	'names:s'=>\$names,
-	'out|o:s'=>\$out,
-	'v|version'=>sub{print $version."\n"; exit;},
-	'h|help'=>sub{system("perldoc $0 \| cat"); exit;},
-);
+    'map:s'    => \$map,
+    'info:s'   => \$info,
+    'lrn:s'    => \$lrn,
+    'names:s'  => \$names,
+    'out|o:s'  => \$out,
+    'v|version'=> sub{print $version."\n"; exit;},
+    'h|help|?' => \$help,
+    'man'      => \$man,
+		  );
+
+pod2usage(1) if $help;
+pod2usage(-exitval => 0, -verbose => 2) if $man;
+
 print "\# $version\n";
 
 my %alias;
@@ -68,7 +75,7 @@ if($map){
 	close MAP;
 }
 
-open(INFO, "<".$info) || die $!;
+open(INFO, "<$info") || die "cannot open $info: $!";
 my (%INFO,@newHeaders);
 while(my $line=<INFO>){
 	chomp $line;
