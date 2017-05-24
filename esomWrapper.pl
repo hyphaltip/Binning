@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#!/usr/bin/perl
 
 =head1 DESCRIPTION
 
@@ -51,13 +51,16 @@
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
+use FindBin;
 use File::Spec;
 use File::Basename;
+use Pod::Usage;
 #use POSIX ":sys_wait_h";
 
 my $scripts;
-my $version="esomWrapper.pl\tv0.2.91\t";
+my $version=join("\t",qw(esomWrapper.pl v0.2.91));
 my $path; # Fasta Folder path
 my $ext="fasta";
 my $prefix="esom";
@@ -73,21 +76,28 @@ my $window_size = 5000; #split sequence after each window_size nt,
                      #14 kb will be split into a 5 kb and a
                      #9 kb fragment if window_size = 5 kb)
 
+my $man = 0;
+my $help = 0;
+
 GetOptions(
-	'p|path:s'=>\$path,
-	'e|ext:s'=>\$ext,
-	'k|kmer:i'=>\$kmer,
-	'prefix:s'=>\$prefix,
-	'DIR|dir:s'=>\$outDir,
-	'min:i'=>\$min_length,
-	'max:i'=>\$window_size,
-	'mod'=>\$mod,
-	'train:s'=>\$train,
-	'info:s'=>\$info,
-	'scripts:s'=>\$scripts,
-	'h|help'=>sub{print "#".$version."\n"; system("perldoc $0 \| cat"); exit;},
-	'v|verison'=>\sub{print "#".$version."\n"; exit;}
-);
+    'p|path:s'   =>  \$path,
+    'e|ext:s'    =>  \$ext,
+    'k|kmer:i'   =>  \$kmer,
+    'prefix:s'   =>  \$prefix,
+    'DIR|dir:s'  =>  \$outDir,
+    'min:i'      =>  \$min_length,
+    'max:i'      =>  \$window_size,
+    'mod'        =>  \$mod,
+    'train:s'    =>  \$train,
+    'info:s'     =>  \$info,
+    'scripts:s'  => \$scripts,
+    'h|help|?'   => \$help, 
+    'man'        => \$man,
+    'v|version'  => sub{print "#".$version."\n"; exit;}
+    );
+
+pod2usage(1) if $help;
+pod2usage(-exitval => 0, -verbose => 2) if $man;
 
 print "## $version ##\n";
 die "[ERROR: $0] Folder Path Required! See $0 -h for help on the usage" if !$path;
@@ -281,7 +291,7 @@ sub parseFasta{
 		}
 		elsif($flag==1){
 			$header=$prevHeader."_".$header;
-			$flag==0;
+			$flag =0;
 			$prevHeader="";
 		}
 
