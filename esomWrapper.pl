@@ -53,13 +53,14 @@
 use strict;
 use warnings;
 use Getopt::Long;
-use FindBin;
+use FindBin qw($Bin);
 use File::Spec;
 use File::Basename;
 use Pod::Usage;
+use Bio::SeqIO;
 #use POSIX ":sys_wait_h";
 
-my $scripts;
+my $scripts = $Bin;
 my $version=join("\t",qw(esomWrapper.pl v0.2.91));
 my $path; # Fasta Folder path
 my $ext="fasta";
@@ -67,6 +68,7 @@ my $prefix="esom";
 my $outDir="ESOM";
 my $kmer = 4;
 my $mod;
+my $force = 0;
 my $train;
 my $info;
 my $min_length = 2500; #Minimal length (in nt) of input contig to be included in output
@@ -93,6 +95,7 @@ GetOptions(
     'scripts:s'  => \$scripts,
     'h|help|?'   => \$help, 
     'man'        => \$man,
+    'force!'     => \$force,
     'v|version'  => sub{print "#".$version."\n"; exit;}
     );
 
@@ -101,73 +104,88 @@ pod2usage(-exitval => 0, -verbose => 2) if $man;
 
 print "## $version ##\n";
 die "[ERROR: $0] Folder Path Required! See $0 -h for help on the usage" if !$path;
-my @files=<$path/*.$ext>;
-die "[ERROR] Can't find \"$path\"\nPlease check that the path exist or that you have sufficient privilages.\n" if (scalar(@files)==0);
 
-my $annotationFile=$prefix.".ann";
-my $concatenatedFasta=$prefix.".".$ext;
-my $logFile=$prefix.".log";
-if (-d $outDir){
-	die "[ERROR: $0]$outDir already exists!\n";
+opendir(PATH,$path) || die "cannot open directory $path: $!";
+if( $ext =~ s/^\.//) {
+    warn("stripping leading . from extension since will be added later");
 }
-else{
-	mkdir($outDir, 0755);
+my @files;
+foreach my $file ( readdir(PATH) ) {
+    next unless $file =~ /\.\Q$ext\E$/;
+    push @files, File::Spec->catfile($path,$file);
 }
 
-my $ann=File::Spec->catfile( $outDir, $annotationFile);
-my $catFasta=File::Spec->catfile( $outDir, $concatenatedFasta);
-my $log=File::Spec->catfile( $outDir, $logFile);
-open(LOG, ">".$log) || die $!;
+unless( scalar @files) {
+    die ("[ERROR] Can't find any files with .$ext in \"$path\"\n".
+	 "Please check that the path exist or that you have sufficient privilages.\n") 
+}
 
-if ((! $scripts) || (! -d $scripts)){
-	if (-d "/geomicro/data1/COMMON/scripts/wrappers/ESOM/"){
-		$scripts="/geomicro/data1/COMMON/scripts/wrappers/ESOM/";	
-	}
-	elsif(-e "tetramer_freqs_esom.pl"){
-		$scripts=`pwd`;
-		chomp $scripts;
-	}
-	else{
-		die "[ERROR: $0] Could not locate helper scripts: 'tetramer_freqs_esom.pl', 'esomCodonMod.pl' and 'esomTrain.pl', please provide the location using '-scripts' flag\n";
-	}
+my $annotationFile   = $prefix.".ann";
+my $concatenatedFasta= $prefix.".".$ext;
+my $logFile          = $prefix.".log";
+
+if (-d $outDir && ! $force ){
+    die "[ERROR: $0]$outDir already exists!\n";
+} else{
+    mkdir($outDir, 0755);
+}
+
+my $ann     = File::Spec->catfile( $outDir, $annotationFile);
+my $catFasta= File::Spec->catfile( $outDir, $concatenatedFasta);
+my $log     = File::Spec->catfile( $outDir, $logFile);
+
+open(LOG, ">$log") || die "cannot open $log for writing: $!";
+
+if ( ! $scripts || ! -d $scripts ){
+    if(-e "tetramer_freqs_esom.pl"){
+	$scripts=`pwd`;
+	chomp $scripts;
+    } else{
+	die "[ERROR: $0] Could not locate helper scripts: 'tetramer_freqs_esom.pl', 'esomCodonMod.pl' and 'esomTrain.pl', please provide the location using '-scripts' flag\n";
+    }
 }
 
 print "# Setting scripts folder location as:\n$scripts\n";
 print LOG "# Setting scripts folder location as:\n$scripts\n";
 
 ### Wrapped Scripts ###
-my $tetramerScript=File::Spec->catfile($scripts,"tetramer_freqs_esom.pl");
-my $codonModScript=File::Spec->catfile($scripts,"esomCodonMod.pl");
-my $esomTrain=File::Spec->catfile($scripts,"esomTrain.pl");
+my $tetramerScript= File::Spec->catfile($scripts,"tetramer_freqs_esom.pl");
+my $codonModScript= File::Spec->catfile($scripts,"esomCodonMod.pl");
+my $esomTrain     = File::Spec->catfile($scripts,"esomTrain.pl");
 ###
 
-die "Can't find the required scripts, please provide the location using the '-scripts' flag\n" unless (-e $tetramerScript);
+unless (-e $tetramerScript) {
+    die "Can't find the required scripts, please provide the location using the '-scripts' flag\n";
+
+}
 #$|++;
 
-open(FASTA, ">".$catFasta) || die $!;
-open(ANN, ">".$ann) || die $!;
+open(my $fastafh => ">$catFasta") || die "cannot open $catFasta for writing: $!";
+open(my $annfh   => ">$ann") || die "cannot open $ann for writing: $!";
 
-my $class=0;
+my $class = 0;
 my $filesProcessed=0;
 
-print "# FileName\tNumber of Sequences found\n";
+warn "# FileName\tNumber of Sequences found\n";
 print LOG "# FileName\tClass Assigned\tNumber of Sequences\n";
-print ANN "# Contig\tAnnotation\tClass\n";
+print $annfh "# Contig\tAnnotation\tClass\n";
 my %cls;
-foreach my $file(@files){
-	my $countSeqs=	parseFasta($file);
+foreach my $file (@files) {
+	my $countSeqs =	parseFasta($file,$fastafh,$annfh);
+
 	my $fileName = basename($file, ".".$ext);
-	$fileName=~ s/\s+/\_/g;
-	print $fileName."\t".$countSeqs."\n";
+	$fileName =~ s/\s+/\_/g;
+
+	warn $fileName."\t".$countSeqs."\n";
 	print LOG $fileName."\t".$class."\t".$countSeqs."\n";
 	
-	$cls{$class}=$fileName;
-	$class++;
+	$cls{$class++} = $fileName;
 	$filesProcessed++;
 }
-close(IN);
-close(FASTA);
-print "\n# Files processed:\t $filesProcessed\n";
+close($fastafh);
+close($annfh);
+
+warn "\n# Files processed:\t $filesProcessed\n";
 print LOG "\n# Files processed:\t $filesProcessed\n";
 close LOG;
 
@@ -175,38 +193,42 @@ print "# Calculating Tetramer Frequencies...\n";
 chdir $outDir || die $!;
 $log = $logFile;
 open (LOG2, ">>".$log ) || die "$log not found\n$!\n";
+
 system("perl $tetramerScript -f $concatenatedFasta -a $annotationFile -min $min_length -max $window_size -ext $ext -kmer $kmer >> $log");
 
 my $lrnfile ="Tetra_".$prefix."_".$min_length.".lrn";
 my $modLrnFile;
-if($mod){
-	if(! -e $codonModScript){
-		warn "[WARNING:] $codonModScript not found. Please use the '-scripts' flag to specify the script's location\n";
-		warn "[WARNING:] The rest of the analysis will be done on the unmodified \*.lrn file.\n";
-		$mod--;
-	}
-	else{
-		print "# Applying Codon Modification...\n";
-		$modLrnFile = "Tetra_".$prefix."_".$min_length.".mod.lrn";
-		system("perl $codonModScript -lrn $lrnfile -o $modLrnFile >> $log");
-	}
+if($mod) {
+    if(! -e $codonModScript){
+	warn "[WARNING:] $codonModScript not found. Please use the '-scripts' flag to specify the script's location\n";
+	warn "[WARNING:] The rest of the analysis will be done on the unmodified \*.lrn file.\n";
+	$mod--;
+    } else{
+	warn "# Applying Codon Modification...\n";
+	$modLrnFile = "Tetra_".$prefix."_".$min_length.".mod.lrn";
+	system("perl $codonModScript -lrn $lrnfile -o $modLrnFile >> $log");
+    }
 }
 
 print "# Adding class names and colors to the cls file\n";
 my $clsFile= "Tetra_".$prefix."_".$min_length.".cls";
 my $tmpCls="tmp.cls";
-open(CLS, $clsFile)|| die $!;
-open(TMP, ">".$tmpCls)|| die $!;
-while(my $line=<CLS>){
-	if ($.==2){
-		for(my $i=0; $i<  $filesProcessed; $i++){
-			my $clsColor=randomColors();
-			print TMP "\%".$i."\t".$cls{$i}."\t".$clsColor."\n";
-		}
-	}
-	print TMP $line;
-}
+open(CLS, $clsFile)|| die "cannot open $clsFile: $!";
+open(TMP, ">$tmpCls")|| die "cannot open $tmpCls for writing: $!";
 
+while(my $line = <CLS>) {
+    if ($. == 2 ){
+	for(my $i=0; $i < $filesProcessed; $i++){
+	    my $clsColor = randomColors();
+	    print TMP "\%".$i."\t".$cls{$i}."\t".$clsColor."\n";
+	}
+    }
+    print TMP $line;
+}
+close(CLS);
+close(TMP);
+# this should be using File::Copy qw(move) I think to be system indepdendent
+# also need to close the files to be written before moving!
 system("mv $tmpCls $clsFile");
 
 =begin Training Commented
@@ -260,55 +282,35 @@ else{
 #}
 #unlink $modLog;
 
-print STDERR "\nAll done! please check the $log file for errors/warnings before you proceed\n";
-print STDERR "Also make sure that your class (.cls) files have values in both the columns\n";
+warn "\nAll done! please check the $log file for errors/warnings before you proceed\n";
+warn "Also make sure that your class (.cls) files have values in both the columns\n";
 print LOG2 "\nAll done! please check this file for errors/warnings before you proceed\n";
 print LOG2 "Please make sure that your class (.cls) files have values in both the columns\n";
 close LOG2;
 exit 0;
 
 #### Sub-routines ####
-sub parseFasta{
-	my $fileName=shift;
-
-	open(IN, $fileName) || die $fileName.":".$!."\n";
-
-	my ($prevHeader, $flag);
-	$/=">";
-	my $countSeqs=0;
-	while(my $line=<IN>){
-		chomp $line;
-		$line=~ s/\r//;
-		next unless $line;
-
-		my($header, @sequence)=split(/\n/, $line);
-		my $seq= join("", @sequence);
-		$seq=~ s/\s+//g;
-		if (length($seq)==0){
-			$prevHeader=$header;
-			$flag=1;
-			next;
-		}
-		elsif($flag==1){
-			$header=$prevHeader."_".$header;
-			$flag =0;
-			$prevHeader="";
-		}
-
-		# Beautify
-		$header=~ s/\s+/\_/g;
-		$header=~ s/\W+/\_/g;
-		$header=~ s/\_+/\_/g;
-		$header=~ s/\_+$//;
-		$header=~ s/^\_+//;
-
-		$countSeqs++;
-		print FASTA ">".$header."\n".$seq."\n";
-		print ANN $header."\t".$header."\t".$class."\n";
-	}
-	close IN;
-	$/="\n";
-	return $countSeqs;
+# Could be replaced with BioPerl ... Bio::SeqIO
+sub parseFasta {
+    my ($fileName,$fastafh,$annfh) = @_;
+    my $in = Bio::SeqIO->new(-format => 'fasta',
+			     -file   => $fileName);
+    my $countSeqs = 0;
+    while( my $seq = $in->next_seq ) {
+	my $header = $seq->display_id;
+	# if really want whole FASTA header then
+	# my $header =  join(" ",$seq->display_id,$seq->description);
+	my $seq    = $seq->seq;
+	
+	$header =~ s/[\s\W]+/\_/g;
+	$header =~ s/\_+/\_/g;
+	$header =~ s/\_+$//;
+	$header =~ s/^\_+//;    
+	$countSeqs++;
+	print $fastafh ">".$header."\n".$seq."\n";
+	print $annfh $header."\t".$header."\t".$class."\n";
+    }
+    return $countSeqs;
 }
 
 sub randomColors {
