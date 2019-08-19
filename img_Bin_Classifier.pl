@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 =head1 DESCRIPTION
 
@@ -72,18 +72,18 @@ my $RNA=$prefix.".rrna";
 my $LOG=$prefix.".multibin";
 my $BINs=$prefix.".bins.list";
 my %binIndex;
-if ($conf){
-	open(CONF, "<".$conf)||die $!;
-	while(my $line=<CONF>){
-		chomp $line;
-		$line=strip($line);
-		next if ($line=~ /^#/);
-		next unless $line;
-	
-		my($bin, $contig, $confVal)=split(/\t/, lc($line));
-		$binIndex{$contig}{$bin}=$confVal;
-	}
-	close CONF;
+if ($conf) {
+    open(CONF, "<".$conf)||die $!;
+    while(my $line=<CONF>){
+	chomp $line;
+	$line=strip($line);
+	next if ($line=~ /^#/);
+	next unless $line;
+
+	my($bin, $contig, $confVal)=split(/\t/, lc($line));
+	$binIndex{$contig}{$bin}=$confVal;
+    }
+    close CONF;
 }
 
 my (%taxaData, %binSize, %binData, %seen, %rnaBin, %no_taxa);
@@ -93,81 +93,81 @@ print BINS "#Bins\tContigs/Scaffolds\n";
 my $TMP=$$.".tmp";
 open(TMP, ">".$TMP)|| die $!;
 open(LOG, ">".$LOG)|| die $!;
-while(my $line=<CONS>){
-	chomp $line;
-	next unless $line;
-	next if $line=~ /^#/;
-	
-	my (@data)=split(/\t/, $line);
-	my $contig=$useIMGName ? strip(lc($data[1])) : strip(lc($data[2]));
-	my $contigLen=strip($data[4]);
-	my $bin;
-	if ($conf){
-		$bin=$seen{$contig} ? $seen{$contig} : getBin($contig);
-	}
-	else{
-		$bin=strip(lc($data[0]));
-	}
+while(my $line=<CONS>) {
+    chomp $line;
+    next unless $line;
+    next if $line=~ /^#/;
 
-	my $geneType=strip(lc($data[7]));
-	if ($geneType eq "rrna"){
-		my $geneDesc=strip($data[15]);
-		my $geneLen=strip($data[10]);
-		print TMP $bin."\t".$geneType."\t".$contig."\t".$geneDesc."\t".$geneLen."\n";
-		$rnaBin{$bin}{"Numbers"}++;
-		$rnaBin{$bin}{"16s"}++ if ($geneDesc=~ /16S rRNA/);
-		$binSize{$bin}++;
-		next;
-	}
+    my (@data)=split(/\t/, $line);
+    my $contig=$useIMGName ? strip(lc($data[1])) : strip(lc($data[2]));
+    my $contigLen=strip($data[4]);
+    my $bin;
+    if ($conf){
+	$bin=$seen{$contig} ? $seen{$contig} : getBin($contig);
+    }
+    else{
+	$bin=strip(lc($data[0]));
+    }
 
-	my $geneID=strip(lc($data[6]));
-	my $taxa_pid=strip(lc($data[13]));
-	my $taxa=lc($data[14]);
-	
-	if (! $taxa){
-		$taxaData{$bin}{"Domain"}{"Unknown"}++;
-		$taxaData{$bin}{"Phyla"}{"Unknown"}++;
-		$taxaData{$bin}{"Class"}{"Unknown"}++;
-		$taxaData{$bin}{"Order"}{"Unknown"}++;
-		$taxaData{$bin}{"Family"}{"Unknown"}++;
-		$taxaData{$bin}{"Genus"}{"Unknown"}++;
-		$taxaData{$bin}{"Species"}{"Unknown"}++;
-		$binData{$bin}{"Len"}+=$contigLen unless $seen{$contig};
-		$binSize{$bin}++;
-		$no_taxa{$geneType}++;
-		next;
-	}
+    my $geneType=strip(lc($data[7]));
+    if ($geneType eq "rrna"){
+	my $geneDesc=strip($data[15]);
+	my $geneLen=strip($data[10]);
+	print TMP join("\t",$bin,$geneType,$contig,$geneDesc,$geneLen),"\n";
+	$rnaBin{$bin}{"Numbers"}++;
+	$rnaBin{$bin}{"16s"}++ if ($geneDesc=~ /16S rRNA/);
+	$binSize{$bin}++;
+	next;
+    }
 
-	# Domain\tPhyla\tClass\tOrder\tFamily\tGenus\tSpecies
-	my($domain,$phyla,$class,$order,$family,$genus,$species)=split(/\;/, $taxa);
-	
-	$domain=strip($domain);
-	if($domain=~ /virus/i){
-		next if ($taxa_pid < $vpid);
-	}
-	elsif($domain=~ /bacteria/i){
-		next if ($taxa_pid < $bpid);
-	}
-	else{
-		next if ($taxa_pid < $other_pid);
-	}
-	
-	$phyla=strip($phyla);
-	$class=strip($class);
-	$order=strip($order);
-	$family=strip($family);
-	$genus=strip($genus);
-	$species=strip($species);
-	
-	$taxaData{$bin}{"Domain"}{$domain}++;
-	$taxaData{$bin}{"Phyla"}{$phyla}++;
-	$taxaData{$bin}{"Class"}{$class}++;
-	$taxaData{$bin}{"Order"}{$order}++;
-	$taxaData{$bin}{"Family"}{$family}++;
-	$taxaData{$bin}{"Genus"}{$genus}++;
-	$taxaData{$bin}{"Species"}{$species}++;
+    my $geneID=strip(lc($data[6]));
+    my $taxa_pid=strip(lc($data[13]));
+    my $taxa=lc($data[14]);
+
+    if (! $taxa){
+	$taxaData{$bin}{"Domain"}{"Unknown"}++;
+	$taxaData{$bin}{"Phyla"}{"Unknown"}++;
+	$taxaData{$bin}{"Class"}{"Unknown"}++;
+	$taxaData{$bin}{"Order"}{"Unknown"}++;
+	$taxaData{$bin}{"Family"}{"Unknown"}++;
+	$taxaData{$bin}{"Genus"}{"Unknown"}++;
+	$taxaData{$bin}{"Species"}{"Unknown"}++;
 	$binData{$bin}{"Len"}+=$contigLen unless $seen{$contig};
 	$binSize{$bin}++;
+	$no_taxa{$geneType}++;
+	next;
+    }
+
+    # Domain\tPhyla\tClass\tOrder\tFamily\tGenus\tSpecies
+    my($domain,$phyla,$class,$order,$family,$genus,$species)=split(/\;/, $taxa);
+
+    $domain=strip($domain);
+    if($domain=~ /virus/i){
+	next if ($taxa_pid < $vpid);
+    }
+    elsif($domain=~ /bacteria/i){
+	next if ($taxa_pid < $bpid);
+    }
+    else{
+	next if ($taxa_pid < $other_pid);
+    }
+
+    $phyla=strip($phyla);
+    $class=strip($class);
+    $order=strip($order);
+    $family=strip($family);
+    $genus=strip($genus);
+    $species=strip($species);
+
+    $taxaData{$bin}{"Domain"}{$domain}++;
+    $taxaData{$bin}{"Phyla"}{$phyla}++;
+    $taxaData{$bin}{"Class"}{$class}++;
+    $taxaData{$bin}{"Order"}{$order}++;
+    $taxaData{$bin}{"Family"}{$family}++;
+    $taxaData{$bin}{"Genus"}{$genus}++;
+    $taxaData{$bin}{"Species"}{$species}++;
+    $binData{$bin}{"Len"}+=$contigLen unless $seen{$contig};
+    $binSize{$bin}++;
 }
 close CONS;
 close TMP;
@@ -176,13 +176,13 @@ close BINS;
 
 my @colOrder=qw(Domain Phyla Class Order Family Genus Species);
 my %printMatrix;
-foreach my $bin(keys %taxaData){
-	foreach my $col(@colOrder){
-		my @sortedKeys= sort{ $taxaData{$bin}{$col}{$b} <=> $taxaData{$bin}{$col}{$a} } keys %{$taxaData{$bin}{$col}};
-		foreach my $k(@sortedKeys){
-			push(@{$printMatrix{$bin}{$col}},$k);
-		}
+foreach my $bin(keys %taxaData) {
+    foreach my $col(@colOrder){
+	my @sortedKeys= sort{ $taxaData{$bin}{$col}{$b} <=> $taxaData{$bin}{$col}{$a} } keys %{$taxaData{$bin}{$col}};
+	foreach my $k(@sortedKeys){
+	    push(@{$printMatrix{$bin}{$col}},$k);
 	}
+    }
 }
 
 open(SUMM, ">".$taxaSumm)||die $!;
@@ -190,22 +190,22 @@ print SUMM "# Bin\tTotal_Genes\trRNA\tSize";
 print SUMM "\t".$_."\t".$_." \%" foreach(@colOrder);
 print SUMM "\n";
 my %bins_with_16s;
-foreach my $bin(keys %printMatrix){
-	for(my $row=0; $row < $top; $row++){
-		print SUMM $bin."\t".$binSize{$bin}."\t".$rnaBin{$bin}{"Numbers"}."\t".$binData{$bin}{"Len"};
-		if($rnaBin{$bin}{"16s"}){ print SUMM "*"; $bins_with_16s{$bin}++;}
-		foreach my $t(@colOrder){
-			if($printMatrix{$bin}{$t}[$row]){
-				my $value=$printMatrix{$bin}{$t}[$row];
-				my $pid=sprintf("%.3f",(($taxaData{$bin}{$t}{$value}/$binSize{$bin}) * 100));
-				print SUMM "\t".ucfirst($value)."\t".$pid."\%";
-			}
-			else{
-				print SUMM "\t\t";
-			}
-		}
-		print SUMM "\n";
+foreach my $bin(keys %printMatrix) {
+    for(my $row=0; $row < $top; $row++){
+	print SUMM $bin."\t".$binSize{$bin}."\t".$rnaBin{$bin}{"Numbers"}."\t".$binData{$bin}{"Len"};
+	if($rnaBin{$bin}{"16s"}){ print SUMM "*"; $bins_with_16s{$bin}++;}
+	foreach my $t(@colOrder){
+	    if($printMatrix{$bin}{$t}[$row]){
+		my $value=$printMatrix{$bin}{$t}[$row];
+		my $pid=sprintf("%.3f",(($taxaData{$bin}{$t}{$value}/$binSize{$bin}) * 100));
+		print SUMM "\t".ucfirst($value)."\t".$pid."\%";
+	    }
+	    else{
+		print SUMM "\t\t";
+	    }
 	}
+	print SUMM "\n";
+    }
 }
 
 print "# ".scalar(keys %bins_with_16s)." out of ".scalar(keys %binSize)." Bins had rRNAs\n";
@@ -217,51 +217,51 @@ system("sort -V -k 3,1 $TMP >> $RNA");
 
 unlink $TMP;
 
-sub strip{
-	my $data=shift;
-	chomp $data;
-	$data=~ m/^\s+/;
-	$data=~ m/\s+$/;
-	return $data;
+sub strip {
+    my $data=shift;
+    chomp $data;
+    $data=~ m/^\s+/;
+    $data=~ m/\s+$/;
+    return $data;
 }
 
-sub getBin{
-	my $contig=shift;
-	return "Unclassified" if (! $binIndex{$contig});	
-	my $Contig=ucfirst($contig);
-	# sort by value
-	my @sortedKeys= sort{ $binIndex{$contig}{$b} <=> $binIndex{$contig}{$a} } keys %{$binIndex{$contig}};
-	if((scalar @sortedKeys) > 1 ){
-		print LOG "[WARNING]\t".$Contig." was put in multiple bins.\n";
-		foreach my $k(@sortedKeys){
-			print LOG "[WARNING]\t".$k."\t".$binIndex{$contig}{$k}."\n";
-		}
-	
-		if($binIndex{$contig}{$sortedKeys[0]} >= $setMinConf){
-			my $bin=strip($sortedKeys[0]);
-			$seen{$contig}=$bin;
-			print BINS $bin."\t".ucfirst($contig)."\n";
-			return $bin;
-		}
-		else{
-			$seen{$contig}="Unclassified";
-			print LOG "[WARNING]\tNothing met the minimum confidence criterion(".$setMinConf.")\n";
-			print LOG "[WARNING]\t".$Contig." Excluded from analysis\n";
-			return "Unclassified";
-		}
+sub getBin {
+    my $contig=shift;
+    return "Unclassified" if (! $binIndex{$contig});	
+    my $Contig=ucfirst($contig);
+    # sort by value
+    my @sortedKeys= sort{ $binIndex{$contig}{$b} <=> $binIndex{$contig}{$a} } keys %{$binIndex{$contig}};
+    if((scalar @sortedKeys) > 1 ){
+	print LOG "[WARNING]\t".$Contig." was put in multiple bins.\n";
+	foreach my $k(@sortedKeys){
+	    print LOG "[WARNING]\t".$k."\t".$binIndex{$contig}{$k}."\n";
 	}
-	elsif($binIndex{$contig}{$sortedKeys[0]} >= $setMinConf){
-		my $bin=strip($sortedKeys[0]);
-		$seen{$contig}=$bin;
-		print BINS $bin."\t".ucfirst($contig)."\n";
-		return $bin;
+
+	if($binIndex{$contig}{$sortedKeys[0]} >= $setMinConf){
+	    my $bin=strip($sortedKeys[0]);
+	    $seen{$contig}=$bin;
+	    print BINS $bin."\t".ucfirst($contig)."\n";
+	    return $bin;
 	}
 	else{
-		$seen{$contig}="Unclassified";
-		my $k=strip($sortedKeys[0]);
-		print LOG "[WARNING]\t".$Contig." failed to meet minimum confidence criterion(".$setMinConf.")\n";
-		print LOG "[WARNING]\t".$k."\t".$binIndex{$contig}{$k}."\n";
-		print LOG "[WARNING]\t".$Contig." Excluded from analysis\n";
-		return "Unclassified";
+	    $seen{$contig}="Unclassified";
+	    print LOG "[WARNING]\tNothing met the minimum confidence criterion(".$setMinConf.")\n";
+	    print LOG "[WARNING]\t".$Contig." Excluded from analysis\n";
+	    return "Unclassified";
 	}
+    }
+    elsif($binIndex{$contig}{$sortedKeys[0]} >= $setMinConf){
+	my $bin=strip($sortedKeys[0]);
+	$seen{$contig}=$bin;
+	print BINS $bin."\t".ucfirst($contig)."\n";
+	return $bin;
+    }
+    else{
+	$seen{$contig}="Unclassified";
+	my $k=strip($sortedKeys[0]);
+	print LOG "[WARNING]\t".$Contig." failed to meet minimum confidence criterion(".$setMinConf.")\n";
+	print LOG "[WARNING]\t".$k."\t".$binIndex{$contig}{$k}."\n";
+	print LOG "[WARNING]\t".$Contig." Excluded from analysis\n";
+	return "Unclassified";
+    }
 }
