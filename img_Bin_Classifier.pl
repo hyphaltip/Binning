@@ -192,8 +192,8 @@ print SUMM "\n";
 my %bins_with_16s;
 foreach my $bin(keys %printMatrix) {
     for(my $row=0; $row < $top; $row++){
-	print SUMM $bin."\t".$binSize{$bin}."\t".$rnaBin{$bin}{"Numbers"}."\t".$binData{$bin}{"Len"};
-	if($rnaBin{$bin}{"16s"}){ print SUMM "*"; $bins_with_16s{$bin}++;}
+	print SUMM join("\t",$bin,$binSize{$bin},$rnaBin{$bin}{"Numbers"},$binData{$bin}{"Len"});
+	if ($rnaBin{$bin}{"16s"}){ print SUMM "*"; $bins_with_16s{$bin}++;}
 	foreach my $t(@colOrder){
 	    if($printMatrix{$bin}{$t}[$row]){
 		my $value=$printMatrix{$bin}{$t}[$row];
