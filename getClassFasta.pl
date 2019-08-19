@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#! /usr/bin/env perl
 
 =head1 Description
 
@@ -129,7 +129,7 @@ while (my $line = <FASTA>) {
 	if ($currentCls{$name}){
 		print OUT ">".$name."\n";
 		print OUT $seq."\n";
-		print CONF $classNum."\t".$name."\t".$currentCls{$name}."\n";
+		print CONF join("\t",$classNum,$name,$currentCls{$name}),"\n";
 	}
 }
 $/= "\n";
