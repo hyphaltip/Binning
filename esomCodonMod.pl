@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 =head1 USAGE
 
 	perl esomCodonMod.pl -lrn file.lrn -o outputFile.lrn
@@ -28,13 +28,13 @@ my @nucl=qw(A T G C);
 
 my %removeTetra;
 foreach my $c(@removeCodons){
-	foreach my $n(@nucl){
-		$removeTetra{$n.$c}++;
-		$removeTetra{$c.$n}++;		
-	}
+    foreach my $n(@nucl){
+	$removeTetra{$n.$c}++;
+	$removeTetra{$c.$n}++;		
+    }
 }
 if($tri){	
-	foreach (@removeCodons){	$removeTetra{$_}++; }
+    foreach (@removeCodons){	$removeTetra{$_}++; }
 }
 
 #print "Possible Tetramers that can be Removed:\t".keys(%removeTetra)."\n";
@@ -43,52 +43,47 @@ open(LRN, $lrn) || die $!;
 my (@codonOrder);
 my ($cols, $secondPart, $firstLine, $removed);
 while(my $line=<LRN>){
-	chomp $line;
-	next unless $line;
-	if ($line=~ /^\% Key/){
-		@codonOrder=split(/\t/, $line);
-		my $thisLine;
-		foreach (@codonOrder){
-			if ($removeTetra{$_}){
-				$removed++;
-				next;
-			}
-			$thisLine.=$_."\t";
-			$cols++;
-		}
-		$thisLine=~ s/\t$/\n/;
-		$secondPart.=$thisLine;
+    chomp $line;
+    next unless $line;
+    if ($line=~ /^\% Key/){
+	@codonOrder=split(/\t/, $line);
+	my @thisLine;
+	foreach (@codonOrder){
+	    if ($removeTetra{$_}){
+		$removed++;
+		next;
+	    }
+	    push @thisLine, $_;
+	    $cols++;
 	}
-	elsif($line=~ /^\d/){
-		my $thisLine;
-		my @frequencies=split(/\t/, $line);
-		my $pos=-1;
-		foreach my $freq(@frequencies){
-			$pos++;
-			next if ($removeTetra{$codonOrder[$pos]});
-			$thisLine.=$freq."\t";
-		}
-		$thisLine=~ s/\t$/\n/;
-		$secondPart.=$thisLine;
+	$secondPart.= join("\t",@thisLine);
+    } elsif($line=~ /^\d/){
+	my @thisLine;
+	my @frequencies=split(/\t/, $line);
+	my $pos=-1;
+	foreach my $freq(@frequencies){
+	    $pos++;
+	    next if ($removeTetra{$codonOrder[$pos]});
+	    push @thisLine, $freq;
 	}
-	elsif($.==1){
-		$firstLine=$line;
-	}
+	$secondPart.= join("\t",@thisLine);
+    } elsif($.==1){
+	$firstLine=$line;
+    }
 }
 close LRN;
 
 print "Tetramers Removed:\t".$removed."\n";
 
 open(OUT, ">".$out) || die $!;
-print OUT $firstLine."\n";
-print OUT "% ".$cols."\n";
-my $thisLine.="% 9\t";
-for (my $i=$cols; $i > 1; $i--){
-	$thisLine.="1\t";
-}
-$thisLine=~ s/\t$/\n/;
+print OUT "$firstLine\n","% $cols\n";
 
-print OUT $thisLine;
+my @thisLine ="% 9"; # can fix this to use an array instead of string append
+for (my $i=$cols; $i > 1; $i--) {
+    push @thisLine, "1";
+}
+
+print OUT join("\t",$thisLine),"\n";
 print OUT $secondPart;
 close OUT;
 

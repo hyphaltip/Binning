@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 =head1 DESCRIPTION
 
@@ -55,55 +55,55 @@ print "\# $version\n";
 
 my %alias;
 if($map){
-	open(MAP, "<".$map)|| die $!;
-	while(my $line=<MAP>){
-		next if ($line=~ /#/);
-		chomp $line;
-		next unless $line;
-
-		my($original, $JGI)=split(/\t/, $line);
-
-		$alias{uc($original)}=$JGI;
-	}
-	close MAP;
+    open(MAP, "<".$map)|| die $!;
+    while(my $line=<MAP>){
+	next if ($line=~ /#/);
+	chomp $line;
+	next unless $line;
+	
+	my($original, $JGI)=split(/\t/, $line);
+	
+	$alias{uc($original)}=$JGI;
+    }
+    close MAP;
 }
 
 open(INFO, "<".$info) || die $!;
 my (%INFO,@newHeaders);
 while(my $line=<INFO>){
-	chomp $line;
-	next unless $line;
-	my ($name, @data)=split(/\t/, $line);
-
-	if (($.==1) && ($line=~ /^#/)){
-		push(@newHeaders, @data);
-		next;
+    chomp $line;
+    next unless $line;
+    my ($name, @data)=split(/\t/, $line);
+    
+    if (($.==1) && ($line=~ /^#/)){
+	push(@newHeaders, @data);
+	next;
+    }
+    elsif($.==1){
+	for(my $i=1; $i <= scalar(@data); $i++){
+	    push(@newHeaders, "Feature".$i);
 	}
-	elsif($.==1){
-		for(my $i=1; $i <= scalar(@data); $i++){
-			push(@newHeaders, "Feature".$i);
-		}
-	}
-	
-	$name=$alias{uc($name)} if ($map);
-
-	$INFO{uc($name)}=join("\t", @data);
+    }
+    
+    $name=$alias{uc($name)} if ($map);
+    
+    $INFO{uc($name)}=join("\t", @data);
 }
 close INFO;
 
 open(NAMES, "<".$names) || die $!;
 my %NAMES;
 while(my $line=<NAMES>){
-	chomp $line;
-	next unless $line;
-	next if ($line=~ /^#/);
-	next if ($line=~ /^%/);
-	
-	my ($num, $ann, $contig)=split(/\t/, $line);
-	
-	if ($INFO{uc($contig)}){
-		$NAMES{uc($num)}=$INFO{uc($contig)};
-	}
+    chomp $line;
+    next unless $line;
+    next if ($line=~ /^#/);
+    next if ($line=~ /^%/);
+    
+    my ($num, $ann, $contig)=split(/\t/, $line);
+    
+    if ($INFO{uc($contig)}){
+	$NAMES{uc($num)}=$INFO{uc($contig)};
+    }
 }
 close NAMES;
 undef %INFO;
@@ -111,42 +111,38 @@ undef %INFO;
 open(LRN, "<".$lrn)|| die $!;
 open(OUT, ">".$out)|| die $!;
 while(my $line=<LRN>){
-	chomp $line;
-	next unless $line;
-	next if ($line=~ /^#/);
-	
-	my $addCols=scalar(@newHeaders);
-	if ($line=~ /^\%/){
-		if($.==1){
-			print OUT $line."\n";
-		}
-		if($.==2){
-			$line=~ s/\%//;
-			print OUT "%".($line+$addCols)."\n";
-		}
-		if($.==3){
-			for(my $i=0; $i < $addCols; $i++){
-				$line.="\t1";
-			}
-			print OUT $line."\n";
-		}
-		if($.==4){
-			for(my $i=0; $i < $addCols; $i++){
-				$line.="\t".$newHeaders[$i];
-			}
-			print OUT $line."\n";
-		}
+    chomp $line;
+    next unless $line;
+    next if ($line=~ /^#/);
+
+    my $addCols=scalar(@newHeaders);
+    if ($line=~ /^\%/){
+	if($.==1){
+	    print OUT $line."\n";
+	} elsif($.==2){
+	    $line=~ s/\%//;
+	    print OUT "%".($line+$addCols)."\n";
+	} elsif($.==3){
+	    for(my $i=0; $i < $addCols; $i++){
+		$line.="\t1";
+	    }
+	    print OUT $line."\n";
+	} elsif($.==4){
+	    for(my $i=0; $i < $addCols; $i++){
+		$line.="\t".$newHeaders[$i];
+	    }
+	    print OUT $line."\n";
 	}
-	else{
-		my($num, @data)=split(/\t/, $line);
-		if($NAMES{$num}){
-			$line.="\t".$NAMES{$num};
-		}
-		else{
-			$line.="\t".(join("\t",((0) x $addCols)));
-		}
-		print OUT $line."\n";
+    }
+    else {
+	my ($num, @data)=split(/\t/, $line);
+	if ($NAMES{$num}){
+	    $line.="\t".$NAMES{$num};
+	} else{
+	    $line.="\t".(join("\t",((0) x $addCols)));
 	}
+	print OUT $line."\n";
+    }
 }
 close LRN;
 close OUT;
