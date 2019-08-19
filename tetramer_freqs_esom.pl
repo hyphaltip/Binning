@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#!/usr/bin/env perl
 
 =head1 NAME
 
@@ -88,11 +88,12 @@ my @names = ();
 my @tetras = ();
 my @seq_list = ();
 
-my $lrnfile = "Tetra_".$seqfile."_$min_length\.lrn";
-my $namesfile = "Tetra_".$seqfile."_$min_length\.names";
-my $classfile = "Tetra_".$seqfile."_$min_length\.cls";
-my $reffile= "Tetra_".$seqfile."_".$min_length."_".$window_size."_split.fasta";
+my $lrnfile   = sprintf("Tetra_%s_%d.lrn",$seqfile,$min_length);
+my $namesfile = sprintf("Tetra_%s_%d.names",$seqfile,$min_length);
+my $classfile = sprintf("Tetra_%s_%d.cls",$seqfile,$min_length);
+my $reffile   = sprintf("Tetra_%s_%d_%d_split.fasta",$seqfile,$min_length,$window_size);
 my $n=0;
+
 #$window_size = 5000;
 
 ####### main #############
